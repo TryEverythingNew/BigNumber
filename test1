@@ -2,9 +2,9 @@ from __future__ import print_function # Python 2/3 compatibility
 import boto3
 import json
 import decimal
-from boto3.dynamodb.conditions import Key, Attr
 import urllib2
-
+import random
+import array
 
 dynamodb = boto3.resource('dynamodb', region_name='us-west-2', endpoint_url="dynamodb.us-west-2.amazonaws.com")
 
@@ -17,40 +17,72 @@ ResponseNextDate = tableNextDate.scan()
 
 for item in ResponseNextDate['Items']:
     ampmother = item['DateTime']
-    CheckTime(timePDT, item['PDTDateForAPI'],ampmother)
+    CheckTime(timePDT, item['PDTDateForAPI'], ampmother, tableNextDate)
 
-while 'LastEvaluatedKey' in response:
-    response = table.scan(
-        ProjectionExpression=pe,
-        FilterExpression=fe,
-        ExpressionAttributeNames= ean,
-        ExclusiveStartKey=response['LastEvaluatedKey']
+while 'LastEvaluatedKey' in ResponseNextDate:
+    ResponseNextDate = tableNextDate.scan(
+        ExclusiveStartKey=ResponseNextDate['LastEvaluatedKey']
         )
 
-    for i in response['Items']:
-        print(json.dumps(i, cls=DecimalEncoder))
+    for item in ResponseNextDate['Items']:
+        ampmother = item['DateTime']
+        CheckTime(timePDT, item['PDTDateForAPI'],ampmother, tableNextDate)
 
 
-def CheckTime(timeCurrent, timeForCalling, AMPMOther):
+def CheckTime(timeCurrent, timeForCalling, AMPMOther, tableNextDate):
     # test below finds out that the Date function in AWS lambda is very poor
     # doesn't support date string like "2016-12-14T18:21:29-07:00"
-    var y1 = int(timeCurrent[0:4])
-    var mon1 = int(timeCurrent[5:7])
-    var d1 = int(timeCurrent[8:10])
-    var h1 = int(timeCurrent[11:13])
-    var min1 = int(timeCurrent[14:16])
+    y1 = int(timeCurrent[0:4])
+    mon1 = int(timeCurrent[5:7])
+    d1 = int(timeCurrent[8:10])
+    h1 = int(timeCurrent[11:13])
+    min1 = int(timeCurrent[14:16])
 
-    var y2 = int(timeForCalling[0:4])
-    var mon2 = int(timeForCalling[5:7])
-    var d2 = int(timeForCalling[8:10])
-    var h2 = int(timeForCalling[11:13])
-    var min2 = int(timeForCalling[14:16])
+    y2 = int(timeForCalling[0:4])
+    mon2 = int(timeForCalling[5:7])
+    d2 = int(timeForCalling[8:10])
+    h2 = int(timeForCalling[11:13])
+    min2 = int(timeForCalling[14:16])
+
+    dateDict = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
+    if y2 % 400 == 0 || y2 % 100 == 0 || y2 % 4 == 0:
+        dateDict[2] = 29
+
+    otherHour = array('i', [1, 2, 3, 4, 5, 6, 10, 11, 12, 13, 14, 15, 19, 20, 21, 22])
     
-    // for simplicity, we restict our date to be within UTC-7, PDT timezone, 01:00 AM to 11:00 PM
-    // other wise, we need to consider carry in year, month, .....
+    # for simplicity, we restict our date to be within UTC-7, PDT timezone, 01:00 AM to 11:00 PM
+    # other wise, we need to consider carry in year, month, .....
     if y1 == y2 && mon1 == mon2 && d1 == d2 :
         if (h1 * 60 + min1 > h2 * 60 + min2) && ((h1 * 60 + min1 - h2 * 60 - min2) < 20) :
             print "Time " + timeCurrent + " is within 20 mins " + timeForCalling
+            min3 = random.randint(1, 59)
+            if AMPMOther == 'AM':
+                h3 = random.randint(7, 9)
+            if AMPMOther == 'AM':
+                h3 = random.randint(16, 18)
+            if AMPMOther == 'other':
+                h3 = otherHour[random.randint(0, len(otherHour))]
+            d3 = d2 + 1
+            mon3 = mon2
+            y3 = y2
+            if d3 > dateDict[mon2]:
+                d3 = 1
+                mon3 = mon2 + 1
+            if mon3 > 12:
+                mon3 = 1
+                y3 = y2 + 1
+            newDateTime = (str(y3) + '-' + str(mon3) + '-' + str(d3) + 'T' + str(h3) + ':' +
+                            str(min3) + timeCurrent[16:]
+                           )
+            print 'New Date Time for ' + AMPMOther + ' is ' + newDateTime
+            tableNextDate.update_item(
+                Key={
+                    'DateTime': AMPMOther
+                },
+                UpdateExpression="set PDTDateForAPI = :r",
+                ExpressionAttributeValues={
+                    ':r': newDateTime
+                }
             return
     
     print "Time " + timeCurrent + " is not within 20 mins " + timeForCalling
