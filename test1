@@ -1,0 +1,61 @@
+from __future__ import print_function # Python 2/3 compatibility
+import boto3
+import json
+import decimal
+from boto3.dynamodb.conditions import Key, Attr
+import urllib2
+
+
+dynamodb = boto3.resource('dynamodb', region_name='us-west-2', endpoint_url="dynamodb.us-west-2.amazonaws.com")
+
+
+timeURL = 'www.timeapi.org/PDT/now'
+timePDT = urllib2.urlopen(timeURL).read()
+
+tableNextDate = dynamodb.Table('NextDateForCallingGoogleAPI')
+ResponseNextDate = tableNextDate.scan()
+
+for item in ResponseNextDate['Items']:
+    ampmother = item['DateTime']
+    CheckTime(timePDT, item['PDTDateForAPI'],ampmother)
+
+while 'LastEvaluatedKey' in response:
+    response = table.scan(
+        ProjectionExpression=pe,
+        FilterExpression=fe,
+        ExpressionAttributeNames= ean,
+        ExclusiveStartKey=response['LastEvaluatedKey']
+        )
+
+    for i in response['Items']:
+        print(json.dumps(i, cls=DecimalEncoder))
+
+
+def CheckTime(timeCurrent, timeForCalling, AMPMOther):
+    # test below finds out that the Date function in AWS lambda is very poor
+    # doesn't support date string like "2016-12-14T18:21:29-07:00"
+    var y1 = int(timeCurrent[0:4])
+    var mon1 = int(timeCurrent[5:7])
+    var d1 = int(timeCurrent[8:10])
+    var h1 = int(timeCurrent[11:13])
+    var min1 = int(timeCurrent[14:16])
+
+    var y2 = int(timeForCalling[0:4])
+    var mon2 = int(timeForCalling[5:7])
+    var d2 = int(timeForCalling[8:10])
+    var h2 = int(timeForCalling[11:13])
+    var min2 = int(timeForCalling[14:16])
+    
+    // for simplicity, we restict our date to be within UTC-7, PDT timezone, 01:00 AM to 11:00 PM
+    // other wise, we need to consider carry in year, month, .....
+    if y1 == y2 && mon1 == mon2 && d1 == d2 :
+        if (h1 * 60 + min1 > h2 * 60 + min2) && ((h1 * 60 + min1 - h2 * 60 - min2) < 20) :
+            print "Time " + timeCurrent + " is within 20 mins " + timeForCalling
+            return
+    
+    print "Time " + timeCurrent + " is not within 20 mins " + timeForCalling
+    
+
+
+
+
