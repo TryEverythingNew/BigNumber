@@ -86,9 +86,25 @@ def CheckTime(timeCurrent, timeForCalling, AMPMOther, tableNextDate):
             return
     
     print "Time " + timeCurrent + " is not within 20 mins " + timeForCalling
+    return
     
 def ScanUberRequire(AMPMOther):
-                
+    tableUberRequire = dynamodb.Table('UberRequire')
+    ResponseUberRequire = tableUberRequire.scan()
+
+    for item in ResponseUberRequire['Items']:
+        CallAPI()
 
 
+    while 'LastEvaluatedKey' in ResponseUberRequire:
+        ResponseUberRequire = tableUberRequire.scan(
+            ExclusiveStartKey=ResponseUberRequire['LastEvaluatedKey']
+            )
 
+        for item in ResponseUberRequire['Items']:
+            CallAPI()
+    return
+    
+    
+def CallAPI():
+    return
