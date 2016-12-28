@@ -1,3 +1,4 @@
+# -*- coding: cp936 -*-
 from __future__ import print_function # Python 2/3 compatibility
 import boto3
 import json
@@ -6,28 +7,26 @@ import urllib2
 import random
 import array
 
-dynamodb = boto3.resource('dynamodb', region_name='us-west-2', endpoint_url="dynamodb.us-west-2.amazonaws.com")
+
+def CallAPI():
+    return
+
+def ScanUberRequire(AMPMOther):
+    tableUberRequire = dynamodb.Table('UberRequire')
+    ResponseUberRequire = tableUberRequire.scan()
+
+    for item in ResponseUberRequire['Items']:
+        CallAPI()
 
 
-timeURL = 'www.timeapi.org/PDT/now'
-timePDT = urllib2.urlopen(timeURL).read()
+    while 'LastEvaluatedKey' in ResponseUberRequire:
+        ResponseUberRequire = tableUberRequire.scan(
+            ExclusiveStartKey=ResponseUberRequire['LastEvaluatedKey']
+            )
 
-tableNextDate = dynamodb.Table('NextDateForCallingGoogleAPI')
-ResponseNextDate = tableNextDate.scan()
-
-for item in ResponseNextDate['Items']:
-    ampmother = item['DateTime']
-    CheckTime(timePDT, item['PDTDateForAPI'], ampmother, tableNextDate)
-
-while 'LastEvaluatedKey' in ResponseNextDate:
-    ResponseNextDate = tableNextDate.scan(
-        ExclusiveStartKey=ResponseNextDate['LastEvaluatedKey']
-        )
-
-    for item in ResponseNextDate['Items']:
-        ampmother = item['DateTime']
-        CheckTime(timePDT, item['PDTDateForAPI'],ampmother, tableNextDate)
-
+        for item in ResponseUberRequire['Items']:
+            CallAPI()
+    return
 
 def CheckTime(timeCurrent, timeForCalling, AMPMOther, tableNextDate):
     # test below finds out that the Date function in AWS lambda is very poor
@@ -54,7 +53,7 @@ def CheckTime(timeCurrent, timeForCalling, AMPMOther, tableNextDate):
     # other wise, we need to consider carry in year, month, .....
     if y1 == y2 and mon1 == mon2 and d1 == d2 :
         if (h1 * 60 + min1 > h2 * 60 + min2) and ((h1 * 60 + min1 - h2 * 60 - min2) < 20) :
-            print "Time " + timeCurrent + " is within 20 mins " + timeForCalling
+            print ("Time " + timeCurrent + " is within 20 mins " + timeForCalling)
             min3 = random.randint(1, 59)
             if AMPMOther == 'AM':
                 h3 = random.randint(7, 9)
@@ -74,7 +73,7 @@ def CheckTime(timeCurrent, timeForCalling, AMPMOther, tableNextDate):
             newDateTime = (str(y3) + '-' + str(mon3) + '-' + str(d3) + 'T' + str(h3) + ':' +
                             str(min3) + timeCurrent[16:]
                            )
-            print 'New Date Time for ' + AMPMOther + ' is ' + newDateTime
+            print ('New Date Time for ' + AMPMOther + ' is ' + newDateTime)
             tableNextDate.update_item(
                 Key={
                     'DateTime': AMPMOther
@@ -83,28 +82,37 @@ def CheckTime(timeCurrent, timeForCalling, AMPMOther, tableNextDate):
                 ExpressionAttributeValues={
                     ':r': newDateTime
                 }
+            )
             return
     
-    print "Time " + timeCurrent + " is not within 20 mins " + timeForCalling
+    print ("Time " + timeCurrent + " is not within 20 mins " + timeForCalling)
     return
+
+
+dynamodb = boto3resource('dynamodb', region_name='us-west-2', endpoint_url="https://dynamodb.us-west-2.amazonaws.com")
+
+timePDT = urllib2.urlopen('http://www.timeapi.org/PDT/now').read()
+
+tableNextDate = dynamodb.Table('NextDateForCallingGoogleAPI')
+ResponseNextDate = tableNextDate.scan()
+
+for item in ResponseNextDate['Items']:
+    ampmother = item['DateTime']
+    CheckTime(timePDT, item['PDTDateForAPI'], ampmother, tableNextDate)
+
+while 'LastEvaluatedKey' in ResponseNextDate:
+    ResponseNextDate = tableNextDate.scan(
+        ExclusiveStartKey=ResponseNextDate['LastEvaluatedKey']
+        )
+
+    for item in ResponseNextDate['Items']:
+        ampmother = item['DateTime']
+        CheckTime(timePDT, item['PDTDateForAPI'],ampmother, tableNextDate)
+
+
+
     
-def ScanUberRequire(AMPMOther):
-    tableUberRequire = dynamodb.Table('UberRequire')
-    ResponseUberRequire = tableUberRequire.scan()
 
-    for item in ResponseUberRequire['Items']:
-        CallAPI()
-
-
-    while 'LastEvaluatedKey' in ResponseUberRequire:
-        ResponseUberRequire = tableUberRequire.scan(
-            ExclusiveStartKey=ResponseUberRequire['LastEvaluatedKey']
-            )
-
-        for item in ResponseUberRequire['Items']:
-            CallAPI()
-    return
     
     
-def CallAPI():
-    return
+
